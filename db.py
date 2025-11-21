@@ -142,7 +142,7 @@ def fetch_similar_documents(
                 })
         elif table_name == "cases":
             fetch_query = f"""
-            SELECT content, case_title, section_type,
+            SELECT content, case_title, section_type, doc_id,
             (1 - (embedding <=> %s::vector)) AS similarity
             FROM {table_name}
             ORDER BY embedding <=> %s::vector
@@ -155,7 +155,8 @@ def fetch_similar_documents(
                     "content": row[0],
                     "case_title": row[1],
                     "section_type": row[2],
-                    "similarity": row[3]
+                    "doc_id": row[3],
+                    "similarity": row[4]
                 })
     except Exception as e:
         print(f"Failed to fetch documents: {e}")

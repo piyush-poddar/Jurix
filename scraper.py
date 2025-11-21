@@ -21,7 +21,7 @@ print(base_website_response.status_code)
 # sample url for august 2025 supreme court cases
 # https://indiankanoon.org/search/?formInput=doctypes%3A%20supremecourt%20fromdate%3A%201-8-2025%20todate%3A%2031-8-2025&pagenum=0
 
-search_url = "https://indiankanoon.org/search/?formInput=doctypes%3A%20supremecourt%20fromdate%3A%201-2-2023%20todate%3A%2031-3-2023&pagenum=14"
+search_url = "https://indiankanoon.org/search/?formInput=doctypes%3A%20supremecourt%20fromdate%3A%201-10-2023%20todate%3A%2031-10-2023&pagenum=1"
 
 response = s.get(search_url)
 print(response.status_code)
@@ -44,9 +44,9 @@ while True:
         print(f"Document ID: {doc_id}")
         print(f"Title: {doc_title}")
         print(f"URL: {doc_url}")
-        if check_if_docid_exists(doc_id):
-            print("Document already exists in the database. Skipping...\n")
-            continue
+        # if check_if_docid_exists(doc_id):
+        #     print("Document already exists in the database. Skipping...\n")
+        #     continue
         doc_response = s.get(doc_url)
         print(f"Status: {doc_response.status_code}")
 
@@ -95,7 +95,7 @@ while True:
     #     json.dump(search_results, f, indent=2, ensure_ascii=False)
     # print(search_results["pagination"]["next_page_url"])
     
-    f = int(input("enter: "))
-    if not f:
-        exit()
+    # f = int(input("enter: "))
+    # if not f:
+    #     exit()
     # print(f"\nFound {search_results['total_cases']} total cases")

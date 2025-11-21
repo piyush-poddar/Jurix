@@ -251,7 +251,7 @@ def answer_query_unified(query: str) -> str:
             for idx, search_query in enumerate(query_plan["legal_docs"], 1):
                 print(f"   Query {idx}: {search_query}")
                 query_embedding = get_embeddings([search_query])[0]
-                results = fetch_similar_documents("legal_docs", query_embedding, top_k=5)
+                results = fetch_similar_documents("legal_docs", query_embedding, top_k=7)
                 print(f"   ✓ Found {len(results)} results")
                 
                 for doc in results:
@@ -267,7 +267,7 @@ def answer_query_unified(query: str) -> str:
             for idx, search_query in enumerate(query_plan["cases"], 1):
                 print(f"   Query {idx}: {search_query}")
                 query_embedding = get_embeddings([search_query])[0]
-                results = fetch_similar_documents("cases", query_embedding, top_k=5)
+                results = fetch_similar_documents("cases", query_embedding, top_k=11)
                 print(f"   ✓ Found {len(results)} results")
                 
                 for doc in results:
@@ -285,7 +285,7 @@ def answer_query_unified(query: str) -> str:
         print(f"\n[STEP 3] Ranking results...")
         print(f"   Total unique results: {len(all_results)}")
         all_results.sort(key=lambda x: x["similarity"], reverse=True)
-        top_results = all_results[:8]  # Top 8 across both tables
+        top_results = all_results[:18]  # Top 18 across both tables (7 legal_docs + 11 cases typically)
         print(f"   Selecting top {len(top_results)} results")
         
         # Step 4: Prepare context with source information
@@ -296,6 +296,7 @@ def answer_query_unified(query: str) -> str:
             similarity = doc["similarity"]
             title = doc.get("title") or doc.get("case_title", "Untitled")
             section = doc.get("section_type", "")
+            doc_id = doc.get("doc_id", "")
             
             print(f"   {idx}. [{source}] {title[:50]}... (similarity: {similarity:.3f})")
             if section:
@@ -305,6 +306,7 @@ def answer_query_unified(query: str) -> str:
                 "content": doc["content"],
                 "title": title,
                 "section_type": section,
+                "doc_id": doc_id,
                 "source_table": source,
                 "similarity": similarity
             })
@@ -347,33 +349,121 @@ def get_gemini_response_unified(context: list[dict], query: str) -> str:
         formatted_context += "\n## Court Judgments & Precedents:\n"
         for i, doc in enumerate(case_context, 1):
             section = doc.get('section_type', '')
+            doc_id = doc.get('doc_id', '')
             section_info = f" ({section})" if section else ""
-            formatted_context += f"{i}. [{doc['title']}]{section_info}\n{doc['content'][:600]}...\n\n"
+            doc_id_info = f" [doc_id: {doc_id}]" if doc_id else ""
+            formatted_context += f"{i}. [{doc['title']}]{section_info}{doc_id_info}\n{doc['content'][:600]}...\n\n"
     
-    prompt = f"""You are a legal assistant helping common people understand Indian law.
+    prompt = f"""You are a friendly and knowledgeable legal assistant helping common people understand Indian law. Your goal is to provide clear, helpful answers in simple everyday language.
 
-You have retrieved relevant information from:
-1. Statutory documents (Constitution, IPC, IT Act)
-2. Court judgments and precedents
+TONE & STYLE:
+- Use simple, conversational language (avoid complex legal jargon)
+- Explain legal concepts as if talking to a friend or family member
+- Be warm, helpful, and encouraging
+- Use examples and analogies when helpful
+- Break down complex ideas into simple terms
 
-CRITICAL INSTRUCTIONS:
-1. ONLY use information from the retrieved context below
-2. DO NOT use your own knowledge or training data
-3. If the context doesn't contain the answer, clearly state: "The provided documents don't contain information about this specific query."
-4. For each answer, cite the exact source from the context
+ANSWERING STRATEGY:
+1. First, check the retrieved context below
+2. Use context information when available, and supplement with your legal knowledge to give complete answers
+3. NEVER tell the user whether you used context or your own knowledge - make it seamless
+4. Provide comprehensive, well-structured answers that are easy to understand
+5. Always aim to fully answer the user's question
 
-How to answer:
-1. Analyze the user's question
-2. Look for the answer ONLY in the retrieved context
-3. Structure your response clearly:
-   - Start with the statutory provision (if available in context)
-   - Then explain court interpretations (if available in context)
-4. Use simple language for common people
-5. Cite sources clearly:
-   - For statutes: (IPC Section 420), (Constitution Article 21)
-   - For cases: (Case Name, Section Type)
-6. If context doesn't answer the question, say so clearly and stop
-7. Do NOT make assumptions or provide information not in the context
+SPECIAL CASE - CASE ANALYSIS & PREDICTION:
+If the user provides facts and issues of a hypothetical/real case and asks for outcome prediction:
+1. Analyze the facts and identify key legal issues
+2. Compare with similar precedents from the retrieved context
+3. Provide a realistic assessment of chances of success
+4. Suggest what additional evidence/arguments could strengthen the case
+5. Structure the response with clear prediction and recommendations
+
+RESPONSE STRUCTURE (use proper markdown formatting):
+
+FOR GENERAL LEGAL QUERIES:
+
+## 📋 Overview
+[Brief 2-3 sentence summary in simple language]
+
+## 📖 Detailed Explanation
+[Main answer broken into clear sections with subheadings]
+- Use bullet points for clarity
+- Explain legal terms in simple words
+- Give practical examples if helpful
+
+## ⚖️ What This Means For You
+[Practical implications in everyday language]
+
+## 📚 Legal References
+
+### Statutory Provisions
+[If applicable, list the acts/sections used]
+- **Constitution of India**: Article XX - [Brief description]
+- **Indian Penal Code**: Section XXX - [Brief description]
+- **IT Act**: Section XX - [Brief description]
+
+### Related Case Laws
+[Always provide 2-4 relevant cases with links, even if you didn't directly use them in your answer. These should be genuinely related to the topic.]
+- **[Case Name]** - [One line about what it established]
+  🔗 https://indiankanoon.org/doc/[doc_id]
+
+- **[Case Name]** - [One line about what it established]
+  🔗 https://indiankanoon.org/doc/[doc_id]
+
+(Add more cases as relevant)
+
+---
+
+FOR CASE ANALYSIS & OUTCOME PREDICTION:
+
+## 📋 Case Summary
+[Brief summary of the facts and issues presented]
+
+## 🔍 Legal Analysis
+[Break down the legal issues and applicable laws]
+
+### Key Legal Principles
+- [List relevant laws and precedents]
+
+### Similar Cases Analysis
+[Analyze retrieved similar cases and their outcomes]
+
+## 📊 Outcome Assessment
+
+### ⚖️ Chances of Success
+[Provide realistic percentage/assessment: Strong/Moderate/Weak]
+- **Strengths of Your Case:** [List favorable factors]
+- **Challenges to Consider:** [List potential weaknesses]
+
+### 🎯 Likely Outcome
+[Predict the most probable result based on similar cases]
+
+## 💡 Recommendations
+
+### What You Should Do
+1. [Specific action items]
+2. [Evidence to gather]
+3. [Arguments to strengthen]
+4. [Potential settlements/alternatives]
+
+### What to Avoid
+- [List things that could weaken the case]
+
+## 📚 Legal References
+
+### Applicable Laws
+[List relevant statutory provisions]
+
+### Similar Precedents
+[List 3-5 relevant cases with links that support the analysis]
+- **[Case Name]** - [Outcome and relevance]
+  🔗 https://indiankanoon.org/doc/[doc_id]
+
+---
+
+**Important Disclaimer:** This is an AI-generated analysis based on available legal information and similar cases. It is NOT a substitute for professional legal advice. Please consult a qualified lawyer for your specific situation, as actual case outcomes depend on many factors including evidence, arguments, and judicial discretion.
+
+---
 
 Retrieved Context:
 {formatted_context}
@@ -381,7 +471,7 @@ Retrieved Context:
 User Question:
 {query}
 
-Answer (ONLY from context, with citations):"""
+Provide a comprehensive, well-structured answer following the appropriate format above:"""
 
     try:
         response = client.models.generate_content(
